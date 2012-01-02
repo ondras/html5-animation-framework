@@ -316,7 +316,6 @@ HAF.Sprite.prototype.draw = function(context) {
 		position[0], position[1], this._size[0], this._size[1], 
 		this._position[0]-this._size[0]/2, this._position[1]-this._size[1]/2, this._size[0], this._size[1]
 	);
-
 }
 HAF.Sprite.prototype._getSourceImagePosition = function() {
 	return [0, 0];

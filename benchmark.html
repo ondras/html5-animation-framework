@@ -9,49 +9,72 @@
 		<link rel="stylesheet" type="text/css" href="style.css" />
 	</head>
 	<body>
-		<input type="button" onclick="toggle()" value="toggle" />
-		<select id="actors">
-			<option value="5">5 actors</option>
+		<select id="actors" onchange="changeActors()">
 			<option value="10">10 actors</option>
-			<option value="20">20 actors</option>
 			<option value="50">50 actors</option>
+			<option value="250">250 actors</option>
 			<option value="500">500 actors</option>
+			<option value="1000">1000 actors</option>
+			<option value="5000">5000 actors</option>
+			<option value="10000">10000 actors</option>
 		</select>
-		<select id="mode">
+		<select id="type" onchange="changeType()">
+			<option value="0">Circle</option>
+			<option value="1">Square</option>
+			<option value="2">Square (aligned)</option>
+			<option value="3">Sprite</option>
+		</select>
+		<select id="mode" onchange="changeMode()">
 			<option value="0">Direct</option>
 			<option value="1">Offscreen</option>
 			<option value="2">Doublebuffer</option>
 		</select>
 		<script>
-		if (!window.console) { window.console = {log:function(x) {alert(x);}}; }
-		
 		var engine = new HAF.Engine([800, 600]);
 		document.body.appendChild(engine.getContainer());
+		engine.addCanvas("main");
 
 		var fps = new HAF.FPS(engine);
 		document.body.appendChild(fps.getContainer());
 
 		var monitor = new HAF.Monitor(engine, [500, 100]);
 		document.body.appendChild(monitor.getContainer());
-
-		engine.addCanvas(1);
 		
-		var toggle = function() {
-			if (engine.isRunning()) {
-				engine.stop();
-			} else {
-				engine.removeActors(1);
-				var actors = parseInt(OZ.$("actors").value);
-				for (var i=0;i<actors;i++) {
-					var actor = new Benchmark(5);
-					engine.addActor(actor, 1);
+		var selectActors = OZ.$("actors");
+		var selectType = OZ.$("type");
+		var selectMode = OZ.$("mode");
+		var actors = [];
+
+		
+		var changeActors = function() {
+			var count = parseInt(selectActors.value);
+			if (count < actors.length) { /* remove */
+				while (count < actors.length) {
+					var actor = actors.pop();
+					engine.removeActor(actor, "main");
 				}
-				engine.setMode(parseInt(OZ.$("mode").value));
-				engine.start();
+			} else if (count > actors.length) { /* add */			
+				var type = parseInt(selectType.value);
+				for (var i=actors.length;i<count;i++) {
+					var actor = new Benchmark(type);
+					actors.push(actor);
+					engine.addActor(actor, "main");
+				}
 			}
 		}
 		
-		toggle();
+		var changeMode = function() {
+			engine.setMode(parseInt(selectMode.value));
+		}
+		
+		var changeType = function() {
+			var type = parseInt(selectType.value);
+			for (var i=0;i<actors.length;i++) { actors[i].setType(type); }
+		}
+		
+		changeActors();
+		changeMode();
+		engine.start();
 		
 		</script>
 	</body>

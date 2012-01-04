@@ -1,3 +1,7 @@
 .monitor {
 	background-color: #ffc;
 }
+
+#engine {
+	border:2px solid black;
+}

@@ -6,39 +6,36 @@
 		<script src="js/oz.js"></script>
 		<script src="js/haf.js"></script>
 		<script src="js/benchmark.js"></script>
+		<script src="js/test.js"></script>
 		<link rel="stylesheet" type="text/css" href="style.css" />
 	</head>
 	<body>
 		Actors:	<select id="actors" onchange="changeActors()">
-			<option value="10">10 actors</option>
-			<option value="50">50 actors</option>
-			<option value="250">250 actors</option>
-			<option value="500">500 actors</option>
-			<option value="1000">1000 actors</option>
-			<option value="5000">5000 actors</option>
-			<option value="10000">10000 actors</option>
+			<option value="10">10</option>
+			<option value="50">50</option>
+			<option value="250">250</option>
+			<option value="500">500</option>
+			<option value="1000">1000</option>
+			<option value="5000">5000</option>
+			<option value="10000">10000</option>
 		</select>
 		Actor type: <select id="type" onchange="changeType()">
 			<option value="0">Circle</option>
 			<option value="1">Square</option>
 			<option value="2">Square (aligned)</option>
 			<option value="3">Sprite</option>
+			<option value="-1">(user)</option>
 		</select>
 		Drawing mode: <select id="mode" onchange="changeMode()">
 			<option value="0">Direct</option>
 			<option value="1">Offscreen</option>
 			<option value="2">Doublebuffer</option>
 		</select>
-		Global alpha: <select id="alpha" onchange="changeAlpha()">
-			<option value="1">1</option>
-			<option value="0.9">0.9</option>
-			<option value="0.5">0.5</option>
-			<option value="0.1">0.1</option>
-			<option value="0">0</option>
-		</select>
+		<label>Transform: <input type="checkbox" id="transform" onclick="changeTransform()" /></label>
 		
 		<script>
-		var engine = new HAF.Engine([800, 600]);
+		var engine = new HAF.Engine([512, 512]);
+		engine.getContainer().id = "engine";
 		document.body.appendChild(engine.getContainer());
 		engine.addCanvas("main");
 
@@ -51,13 +48,9 @@
 		var selectActors = OZ.$("actors");
 		var selectType = OZ.$("type");
 		var selectMode = OZ.$("mode");
-		var selectAlpha = OZ.$("alpha");
+		var selectTransform = OZ.$("transform");
 		var actors = [];
 
-		var changeAlpha = function() {
-			engine.setAlpha(parseFloat(selectAlpha.value));
-		}
-		
 		var changeActors = function() {
 			var count = parseInt(selectActors.value);
 			if (count < actors.length) { /* remove */
@@ -84,9 +77,14 @@
 			for (var i=0;i<actors.length;i++) { actors[i].setType(type); }
 		}
 		
+		var changeTransform = function() {
+			var enable = selectTransform.checked;
+			for (var i=0;i<actors.length;i++) { actors[i].setTransform(enable); }
+		}
+
 		changeActors();
 		changeMode();
-		changeAlpha();
+		changeTransform();
 		engine.start();
 		
 		</script>

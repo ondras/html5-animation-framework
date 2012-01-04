@@ -20,8 +20,7 @@ HAF.Engine.prototype.init = function(size) {
 	this._canvases = {};
 	this._tick = this._tick.bind(this);
 	this._mode = HAF.MODE_DIRECT;
-	this._alpha = 1;
-	
+
 	var prefixes = ["", "moz", "webkit", "ms"];
 	var ok = false;
 	for (var i=0;i<prefixes.length;i++) {
@@ -45,11 +44,6 @@ HAF.Engine.prototype.isRunning = function() {
 
 HAF.Engine.prototype.setMode = function(mode) {
 	this._mode = mode;
-	return this;
-}
-
-HAF.Engine.prototype.setAlpha = function(alpha) {
-	this._alpha = alpha;
 	return this;
 }
 
@@ -130,14 +124,12 @@ HAF.Engine.prototype._tick = function() {
 		switch (this._mode) {
 			case HAF.MODE_DIRECT:
 				obj.canvas.width = obj.canvas.width; /* clear canvas */
-				obj.ctx.globalAlpha = this._alpha;
 				i = actors.length; 
 				while (i--) { actors[i].draw(obj.ctx); }
 			break;
 			
 			case HAF.MODE_OFFSCREEN:
 				obj.canvas.width = obj.canvas.width; /* clear canvas */
-				obj.ctx.globalAlpha = this._alpha;
 				i = actors.length; 
 				var canvas = obj.canvas;
 				var next = canvas.nextSibling;
@@ -149,7 +141,6 @@ HAF.Engine.prototype._tick = function() {
 
 			case HAF.MODE_DOUBLEBUFFER:
 				obj.second.width = obj.second.width; /* clear canvas */
-				obj.secondCtx.globalAlpha = this._alpha;
 				i = actors.length; 
 				while (i--) { actors[i].draw(obj.secondCtx); }
 				obj.canvas.parentNode.replaceChild(obj.second, obj.canvas);

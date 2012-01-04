@@ -4,11 +4,13 @@ Benchmark.CIRCLE			= 0;
 Benchmark.SQUARE			= 1;
 Benchmark.SQUARE_ALIGNED	= 2;
 Benchmark.SPRITE			= 3;
+Benchmark.USER				= -1;
 
 Benchmark.image = OZ.DOM.elm("img", {src:"zombie.png"});
 
 Benchmark.prototype.init = function(type) {
 	this._type = null;
+	this._transform = false;
 	this._x = null;
 	this._y = null;
 
@@ -25,11 +27,24 @@ Benchmark.prototype.tick = function() {
 
 Benchmark.prototype.setType = function(type) {
 	this._type = type;
-	if (this._type == Benchmark.SPRITE) { this._x = -1; }
+	this._x = -1;
+	return this;
+}
+
+Benchmark.prototype.setTransform = function(mode) {
+	this._transform = mode;
 	return this;
 }
 
 Benchmark.prototype.draw = function(context) {
+	context.save();
+	if (this._transform) { 
+		var w = context.canvas.width/2;
+		var h = context.canvas.height/2;
+		context.translate(w, h);
+		context.rotate(45 * Math.PI/180); 
+		context.translate(-w, -h);
+	}
 
 	switch (this._type) {
 		case Benchmark.CIRCLE:
@@ -79,5 +94,15 @@ Benchmark.prototype.draw = function(context) {
 				this._x, this._y, size, size
 			);
 		break;
+		
+		case Benchmark.USER:
+			this._drawUser(context);
+		break;
 	}
+	
+	context.restore();
+
+}
+
+Benchmark.prototype._drawUser = function(context) {
 }

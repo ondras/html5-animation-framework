@@ -12,13 +12,19 @@ HAF.MODE_DOUBLEBUFFER	= 2;
  * @class Base animation director
  */
 HAF.Engine = OZ.Class();
-HAF.Engine.prototype.init = function(size) {
+HAF.Engine.prototype.init = function(size,  options) {
 	this._size = size;
+	this._options = {
+		fps: 60
+	};
+	for (var p in options) { this._options[p] = options[p]; }
 
 	this._running = false;
 	this._container = OZ.DOM.elm("div", {position:"relative", width:this._size[0]+"px", height:this._size[1]+"px"});
 	this._canvases = {};
+	this._draw = this._draw.bind(this);
 	this._tick = this._tick.bind(this);
+	
 	this._mode = HAF.MODE_DIRECT;
 
 	var prefixes = ["", "moz", "webkit", "ms"];
@@ -31,6 +37,7 @@ HAF.Engine.prototype.init = function(size) {
 			break;
 		}
 	}
+
 	if (!ok) { 
 		this._schedule = function(cb) {
 			setTimeout(cb, 1000/60); /* 60 fps */
@@ -93,6 +100,7 @@ HAF.Engine.prototype.start = function() {
 	this.dispatch("start");
 	this._ts = Date.now();
 	this._tick();
+	this._draw();
 }
 
 HAF.Engine.prototype.stop = function() {
@@ -100,37 +108,59 @@ HAF.Engine.prototype.stop = function() {
 	this.dispatch("stop");
 }
 
+/**
+ * (Physics) Time step
+ */
 HAF.Engine.prototype._tick = function() {
 	if (!this._running) { return; }
 	
-	this._schedule.call(window, this._tick); /* schedule next tick */
+	setTimeout(this._tick, 1000/this._options.fps);
+
 	var ts1 = Date.now();
 	var dt = ts1 - this._ts;
 	this._ts = ts1;
 	
 	for (var id in this._canvases) { /* for all canvases */
 		var obj = this._canvases[id];
-		var changed = false;
+		var dirty = obj.dirty;
 		var actors = obj.actors;
 		var i = actors.length;
 		while (i--) { /* tick all actors, remember if any actor changed */
-			changed = actors[i].tick(dt) || changed;
+			dirty = actors[i].tick(dt) || dirty;
 		}
-		
-		if (!changed && !obj.dirty) { continue; }
-		
+		obj.dirty = dirty;
+	}
+	
+	var ts2 = Date.now();
+	this.dispatch("tick", {time:ts2-ts1});
+}
+
+/**
+ * Drawing time step
+ */
+HAF.Engine.prototype._draw = function() {
+	if (!this._running) { return; }
+	
+	this._schedule.call(window, this._draw); /* schedule next tick */
+	var ts1 = Date.now();
+	
+	for (var id in this._canvases) { /* for all canvases */
+		var obj = this._canvases[id];
+		if (!obj.dirty) { continue; }
+
 		/* at least one actor changed; redraw canvas */
+		var actors = obj.actors;
 		
 		switch (this._mode) {
 			case HAF.MODE_DIRECT:
 				obj.canvas.width = obj.canvas.width; /* clear canvas */
-				i = actors.length; 
+				var i = actors.length; 
 				while (i--) { actors[i].draw(obj.ctx); }
 			break;
 			
 			case HAF.MODE_OFFSCREEN:
 				obj.canvas.width = obj.canvas.width; /* clear canvas */
-				i = actors.length; 
+				var i = actors.length; 
 				var canvas = obj.canvas;
 				var next = canvas.nextSibling;
 				var parent = canvas.parentNode;
@@ -141,7 +171,7 @@ HAF.Engine.prototype._tick = function() {
 
 			case HAF.MODE_DOUBLEBUFFER:
 				obj.second.width = obj.second.width; /* clear canvas */
-				i = actors.length; 
+				var i = actors.length; 
 				while (i--) { actors[i].draw(obj.secondCtx); }
 				obj.canvas.parentNode.replaceChild(obj.second, obj.canvas);
 				
@@ -168,36 +198,48 @@ HAF.FPS = OZ.Class();
 HAF.FPS.prototype.init = function(engine) {
 	this._interval = null;
 	this._intervalLength = 500;
-	this._avgFrames = 10;
 	
-	this._frames = null; /* absolute frames */
+	this._ts = null;
 
-	this._potFrames = null; /* 0..this._avgFrames */
-	this._potTime = null; /* time spent in local frames */
+	this._frames = { /* absolute frames */
+		tick: null,
+		draw: null 
+	}
+	this._localFrames = {
+		tick: null,
+		draw: null
+	}
+	this._localTime = {
+		tick: null,
+		draw: null
+	}
 
-	this._curTick = null; /* for current timer */
-	this._curFrames = null; /* current frames */
-	
 	this._dom = {
 		container: OZ.DOM.elm("div", {whiteSpace:"pre", fontFamily:"monospace"}),
-		frames: OZ.DOM.elm("span"),
+		frames: {
+			tick: OZ.DOM.elm("span"),
+			draw: OZ.DOM.elm("span")
+		},
 		pot: OZ.DOM.elm("span"),
 		cur: OZ.DOM.elm("span")
 	}
 	
 	OZ.DOM.append([
 		this._dom.container,
-		this._dom.frames,
-		OZ.DOM.text(" frames • Potential FPS "),
+		OZ.DOM.text("Total frames (sym/draw): "),
+		this._dom.frames.tick,
+		OZ.DOM.text("/"),
+		this._dom.frames.draw,
+		OZ.DOM.text(" • Potential FPS: "),
 		this._dom.pot,
-		OZ.DOM.text(" (" + this._avgFrames + " frame average) • Current FPS "),
-		this._dom.cur,
-		OZ.DOM.text(" (" + this._intervalLength + "ms average)"),
+		OZ.DOM.text(" • Current FPS: "),
+		this._dom.cur
 	]);
 	
 	OZ.Event.add(engine, "start", this._start.bind(this));
 	OZ.Event.add(engine, "stop", this._stop.bind(this));
 	OZ.Event.add(engine, "frame", this._frame.bind(this));
+	OZ.Event.add(engine, "tick", this._tick.bind(this));
 }
 
 HAF.FPS.prototype.getContainer = function() {
@@ -205,15 +247,18 @@ HAF.FPS.prototype.getContainer = function() {
 }
 
 HAF.FPS.prototype._start = function(e) {
-	this._frames = 0; /* frames encountered so far */
+	this._frames.tick = 0;
+	this._frames.draw = 0;
 
-	this._potTime = 0;
-	this._potFrames = 0;
+	this._localFrames.tick = 0;
+	this._localFrames.draw = 0;
+
+	this._localTime.tick = 0;
+	this._localTime.draw = 0;
 	
-	this._curTick = Date.now();
-	this._curFrames = 0;
-	
-	this._interval = setInterval(this._tick.bind(this), this._intervalLength);
+	this._ts = Date.now();
+
+	this._interval = setInterval(this._check.bind(this), this._intervalLength);
 }
 
 HAF.FPS.prototype._stop = function(e) {
@@ -221,34 +266,58 @@ HAF.FPS.prototype._stop = function(e) {
 	this._interval = null;
 }
 
-HAF.FPS.prototype._frame = function(e) {
-	var time = e.data.time;
-	this._frames++;
-	this._curFrames++;
-	this._dom.frames.innerHTML = this._pad(this._frames + "", 7);
+HAF.FPS.prototype._tick = function(e) {
+	this._frames.tick++;
+	this._dom.frames.tick.innerHTML = this._pad(this._frames.tick + "", 7);
 
-	this._potTime += time;
-	this._potFrames++;
-	if (this._potFrames == this._avgFrames) {
+	this._localFrames.tick++;
+	this._localTime.tick += e.data.time;
+
+/*
 		this._dom.pot.innerHTML = this._pad((1000*this._avgFrames/this._potTime).toFixed(2), 7);
 		this._potFrames = 0;
 		this._potTime = 0;
-	}
+*/
 	
 }
+
+HAF.FPS.prototype._frame = function(e) {
+	this._frames.draw++;
+	this._dom.frames.draw.innerHTML = this._pad(this._frames.draw + "", 7);
+
+	this._localFrames.draw++;
+	this._localTime.draw += e.data.time;
+}
+
 
 HAF.FPS.prototype._pad = function(str, len) {
 	while (str.length < len) { str = " " + str; }
 	return str;
 }
 
-HAF.FPS.prototype._tick = function() {
+HAF.FPS.prototype._check = function() {
 	var ts = Date.now();
-	var dt = ts - this._curTick;
-	this._dom.cur.innerHTML = this._pad((1000*this._curFrames/dt).toFixed(2), 7);
+	var dt = ts - this._ts;
+
+	/* potential simulation FPS */
+	var avgFrame = 1000 * this._localFrames.tick / this._localTime.tick;
+	/* potential drawing FPS */
+	var avgDraw = 1000 * this._localFrames.draw / this._localTime.draw;
+
+	this._dom.pot.innerHTML = this._pad(avgFrame.toFixed(2), 7) + "/" + this._pad(avgDraw.toFixed(2), 7);
 	
-	this._curTick = ts;
-	this._curFrames = 0;
+	/* current simulation FPS */
+	var curFrame = 1000 * this._localFrames.tick / dt;
+	/* current drawing FPS */
+	var curDraw = 1000 * this._localFrames.draw / dt;
+
+	this._dom.cur.innerHTML = this._pad(curFrame.toFixed(2), 7) + "/" + this._pad(curDraw.toFixed(2), 7);
+
+	this._ts = ts;
+	this._localFrames.tick = 0;
+	this._localFrames.draw = 0;
+	this._localTime.tick = 0;
+	this._localTime.draw = 0;
 }
 
 HAF.Monitor = OZ.Class();
@@ -256,9 +325,12 @@ HAF.Monitor.prototype.init = function(engine, size) {
 	this._size = size;
 	this._canvas = OZ.DOM.elm("canvas", {className:"monitor"});
 	this._ctx = this._canvas.getContext("2d");
-	this._data = [];
+
+	this._dataTick = [];
+	this._dataFrame = [];
 	
 	OZ.Event.add(engine, "start", this._start.bind(this));
+	OZ.Event.add(engine, "tick", this._tick.bind(this));
 	OZ.Event.add(engine, "frame", this._frame.bind(this));
 }
 
@@ -269,24 +341,46 @@ HAF.Monitor.prototype.getContainer = function() {
 HAF.Monitor.prototype._start = function(e) {
 	this._canvas.width = this._size[0];
 	this._canvas.height = this._size[1];
-	this._data = [];
+
+	this._dataTick = [];
+	this._dataFrame = [];
+}
+
+HAF.Monitor.prototype._tick = function(e) {
+	this._dataTick.push(e.data.time);
+	if (this._dataTick.length > this._size[0]) { this._dataTick.shift(); }
+	this._draw();	
 }
 
 HAF.Monitor.prototype._frame = function(e) {
-	this._data.push(e.data.time);
-	if (this._data.length > this._size[0]) { this._data.shift(); }
+	this._dataFrame.push(e.data.time);
+	if (this._dataFrame.length > this._size[0]) { this._dataFrame.shift(); }
+	this._draw();	
+}
+
+HAF.Monitor.prototype._draw = function() {
 	this._canvas.width = this._canvas.width;
 	
 	this._ctx.beginPath();
-	var i = this._data.length;
+	var i = this._dataTick.length;
 	var w = this._size[0]-1;
 	var h = this._size[1]-1;
-	
 	this._ctx.moveTo(w, h);
 	while (i--) {
-		this._ctx.lineTo(w--, h-this._data[i]);
+		this._ctx.lineTo(w--, h-this._dataTick[i]);
 	}
-	
+	this._ctx.strokeStyle = "blue";
+	this._ctx.stroke();
+
+	this._ctx.beginPath();
+	var i = this._dataFrame.length;
+	var w = this._size[0]-1;
+	var h = this._size[1]-1;
+	this._ctx.moveTo(w, h);
+	while (i--) {
+		this._ctx.lineTo(w--, h-this._dataFrame[i]);
+	}
+	this._ctx.strokeStyle = "red";
 	this._ctx.stroke();
 }
 

@@ -15,12 +15,13 @@ HAF.Engine = OZ.Class();
 HAF.Engine.prototype.init = function(size,  options) {
 	this._size = size;
 	this._options = {
-		fps: 60
+		fps: 60,
+		id: "haf"
 	};
 	for (var p in options) { this._options[p] = options[p]; }
 
 	this._running = false;
-	this._container = OZ.DOM.elm("div", {position:"relative", width:this._size[0]+"px", height:this._size[1]+"px"});
+	this._container = OZ.DOM.elm("div", {id:this._options.id, position:"relative", width:this._size[0]+"px", height:this._size[1]+"px"});
 	this._canvases = {};
 	this._draw = this._draw.bind(this);
 	this._tick = this._tick.bind(this);

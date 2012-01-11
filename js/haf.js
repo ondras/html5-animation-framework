@@ -154,13 +154,13 @@ HAF.Engine.prototype._draw = function() {
 		
 		switch (this._mode) {
 			case HAF.MODE_DIRECT:
-				obj.canvas.width = obj.canvas.width; /* clear canvas */
+				obj.ctx.clearRect(0, 0, this._size[0], this._size[1]); /* clear canvas */
 				var i = actors.length; 
 				while (i--) { actors[i].draw(obj.ctx); }
 			break;
 			
 			case HAF.MODE_OFFSCREEN:
-				obj.canvas.width = obj.canvas.width; /* clear canvas */
+				obj.ctx.clearRect(0, 0, this._size[0], this._size[1]); /* clear canvas */
 				var i = actors.length; 
 				var canvas = obj.canvas;
 				var next = canvas.nextSibling;
@@ -171,7 +171,7 @@ HAF.Engine.prototype._draw = function() {
 			break;
 
 			case HAF.MODE_DOUBLEBUFFER:
-				obj.second.width = obj.second.width; /* clear canvas */
+				obj.secondCtx.clearRect(0, 0, this._size[0], this._size[1]); /* clear canvas */
 				var i = actors.length; 
 				while (i--) { actors[i].draw(obj.secondCtx); }
 				obj.canvas.parentNode.replaceChild(obj.second, obj.canvas);

@@ -273,13 +273,6 @@ HAF.FPS.prototype._tick = function(e) {
 
 	this._localFrames.tick++;
 	this._localTime.tick += e.data.time;
-
-/*
-		this._dom.pot.innerHTML = this._pad((1000*this._avgFrames/this._potTime).toFixed(2), 7);
-		this._potFrames = 0;
-		this._potTime = 0;
-*/
-	
 }
 
 HAF.FPS.prototype._frame = function(e) {
@@ -397,19 +390,21 @@ HAF.Actor.prototype.draw = function(context) { }
  */
 HAF.Sprite = OZ.Class().extend(HAF.Actor);
 HAF.Sprite.prototype.init = function(image, size) {
-	this._size = size;
-	this._position = [0, 0];
-	this._image = image;
+	this._sprite = {
+		size: size,
+		position: [0, 0],
+		image: image
+	}
 }
 HAF.Sprite.prototype.draw = function(context) {
 	var position = this._getSourceImagePosition();
-	position[0] *= this._size[0];
-	position[1] *= this._size[1];
+	position[0] *= this._sprite.size[0];
+	position[1] *= this._sprite.size[1];
 
 	context.drawImage(
-		this._image, 
-		position[0], position[1], this._size[0], this._size[1], 
-		this._position[0]-this._size[0]/2, this._position[1]-this._size[1]/2, this._size[0], this._size[1]
+		this._sprite.image, 
+		position[0], position[1], this._sprite.size[0], this._sprite.size[1], 
+		this._sprite.position[0]-this._sprite.size[0]/2, this._sprite.position[1]-this._sprite.size[1]/2, this._sprite.size[0], this._sprite.size[1]
 	);
 }
 HAF.Sprite.prototype._getSourceImagePosition = function() {
@@ -422,15 +417,17 @@ HAF.Sprite.prototype._getSourceImagePosition = function() {
 HAF.AnimatedSprite = OZ.Class().extend(HAF.Sprite);
 HAF.AnimatedSprite.prototype.init = function(image, size, frames) {
 	HAF.Sprite.prototype.init.call(this, image, size);
-	this._frames = frames;
-	this._frame = -1;
-	this._fps = 10;
-	this._time = 0;
+	this._animation = {
+		fps: 10,
+		time: 0,
+		frame: 0,
+		frames: frames
+	}
 	
 }
 HAF.AnimatedSprite.prototype.tick = function(dt) {
-	this._time += dt;
-	var oldFrame = this._frame;
-	this._frame = Math.floor(this._time * this._fps / 1000) % this._frames;
-	return (oldFrame != this._frame);
+	this._animation.time += dt;
+	var oldFrame = this._animation.frame;
+	this._animation.frame = Math.floor(this._animation.time * this._animation.fps / 1000) % this._animation.frames;
+	return (oldFrame != this._animation.frame);
 }

@@ -12,15 +12,15 @@ Zombie.prototype.init = function(area) {
 	var availW = area[0] - Zombie.size[0];
 	var availH = area[1] - Zombie.size[1];
 	
-	this._position = [Math.round(Zombie.size[0]/2 + Math.random()*availW), Math.round(Zombie.size[1]/2 + Math.random()*availH)];
+	this._sprite.position = [Math.round(Zombie.size[0]/2 + Math.random()*availW), Math.round(Zombie.size[1]/2 + Math.random()*availH)];
 	this._direction = Math.floor(Math.random()*8);
-	this._fps = 6 + 10*Math.random();
+	this._animation.fps = 6 + 10*Math.random();
 }
 Zombie.prototype._getSourceImagePosition = function() {
-	if (this._frame < 8) {
-		return [4 + this._frame, this._direction];
+	if (this._animation.frame < 8) {
+		return [4 + this._animation.frame, this._direction];
 	} else if (this._frame < 16) {
-		return [20 + this._frame, this._direction];
+		return [20 + this._animation.frame, this._direction];
 	} else {
 		return [35, this._direction];
 	}
@@ -48,7 +48,7 @@ MovingZombie.prototype.init = function(area) {
 	this._speed = 30 + Math.random()*80; /* pixels per second */
 	var dir = MovingZombie.DIR[this._direction];
 	this._dir = [this._speed*dir[0], this._speed*dir[1]];
-	this._fps = this._speed / 8;
+	this._animation.fps = this._speed / 8;
 }
 
 MovingZombie.prototype.tick = function(dt) {
@@ -65,14 +65,14 @@ MovingZombie.prototype.tick = function(dt) {
 	var x = Math.round(this._exactPosition[0]);
 	var y = Math.round(this._exactPosition[1]);
 	var positionChange = false;
-	if (x != this._position[0] || y != this._position[1]) {
+	if (x != this._sprite.position[0] || y != this._sprite.position[1]) {
 		positionChange = true;
-		this._position[0] = x;
-		this._position[1] = y;
+		this._sprite.position[0] = x;
+		this._sprite.position[1] = y;
 	}
 
 	return (frameChange || positionChange);
 }
 MovingZombie.prototype._getSourceImagePosition = function() {
-	return [4 + this._frame, this._direction];
+	return [4 + this._animation.frame, this._direction];
 }

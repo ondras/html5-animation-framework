@@ -79,7 +79,7 @@ HAF.Engine.prototype.addCanvas = function(id) {
 
 HAF.Engine.prototype.addActor = function(actor, canvasId) {
 	var obj = this._canvases[canvasId];
-	obj.actors.push(actor); 
+	obj.actors.unshift(actor); 
 	obj.dirty = true;
 }
 

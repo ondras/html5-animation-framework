@@ -1,0 +1,98 @@
+<!doctype html>
+<html>
+	<head>
+		<meta charset="utf-8" />
+		<title>HAF &bull; HTML5 Animation Framework &bull; Particles</title>
+		<script src="js/oz.js"></script>
+		<script src="js/haf.js"></script>
+		<script src="js/particle.js"></script>
+		<script src="js/benchmark.js"></script>
+		<script src="js/test.js"></script>
+		<link rel="stylesheet" type="text/css" href="style.css" />
+	</head>
+	<body>
+		Particles: <select id="actors" onchange="changeActors()">
+			<option value="10">10</option>
+			<option value="50">50</option>
+			<option value="250">250</option>
+			<option value="500">500</option>
+			<option value="1000">1000</option>
+			<option value="5000">5000</option>
+			<option value="10000">10000</option>
+		</select>
+		Particle type: <select id="type" onchange="changeType()">
+			<option value="0">Square</option>
+			<option value="1">Circle</option>
+		</select>
+		Drawing mode: <select id="mode" onchange="changeMode()">
+			<option value="0">Direct</option>
+			<option value="1">Offscreen</option>
+			<option value="2">Doublebuffer</option>
+		</select>
+		
+		<script>
+		var particles = 0;
+		var maxParticles = 0;
+		var angle = 0;
+			
+		var engine = new HAF.Engine([512, 512]);
+		engine.getContainer().id = "engine";
+		document.body.appendChild(engine.getContainer());
+		engine.addCanvas("main");
+
+		var fps = new HAF.FPS(engine);
+		document.body.appendChild(fps.getContainer());
+
+		var monitor = new HAF.Monitor(engine, [500, 100]);
+		document.body.appendChild(monitor.getContainer());
+		
+		OZ.Event.add(engine, "tick", function() {
+			var type = parseInt(selectType.value);
+			var amount = Math.min(5, maxParticles - particles);
+//			var angle = Math.random()* 2 * Math.PI;
+
+			for (var i=0;i<amount;i++) {
+				var x = Math.random() * 512;
+				var y = Math.random() * 512;
+				var speed = 30 + 30*Math.random();
+				var velocity = [speed * Math.cos(angle), speed * Math.sin(angle)];
+				var actor = new Particle([256, 256], {velocity: velocity, size:4, type:type, decay:0.3});
+				engine.addActor(actor, "main");
+				particles++;
+			}
+			
+			angle = (angle+1)%360;
+		});
+		
+		OZ.Event.add(null, "death", function(e) {
+			engine.removeActor(e.target, "main");
+			particles--;
+		});
+		
+		var selectActors = OZ.$("actors");
+		var selectType = OZ.$("type");
+		var selectMode = OZ.$("mode");
+		var selectTransform = OZ.$("transform");
+		var actors = [];
+
+		var changeActors = function() {
+			engine.removeActors("main");
+			particles = 0;
+			maxParticles = parseInt(selectActors.value);
+		}
+		
+		var changeMode = function() {
+			engine.setMode(parseInt(selectMode.value));
+		}
+		
+		var changeType = function() {
+			changeActors();
+		}
+		
+		changeActors();
+		changeMode();
+		engine.start();
+		
+		</script>
+	</body>
+</html>

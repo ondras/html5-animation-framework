@@ -150,6 +150,7 @@ HAF.Engine.prototype._draw = function() {
 		if (!obj.dirty) { continue; }
 
 		/* at least one actor changed; redraw canvas */
+		obj.dirty = false;
 		var actors = obj.actors;
 		
 		switch (this._mode) {
@@ -430,4 +431,63 @@ HAF.AnimatedSprite.prototype.tick = function(dt) {
 	var oldFrame = this._animation.frame;
 	this._animation.frame = Math.floor(this._animation.time * this._animation.fps / 1000) % this._animation.frames;
 	return (oldFrame != this._animation.frame);
+}
+
+/**
+ * Particle, suitable for particle fx
+ */
+HAF.Particle = OZ.Class().extend(HAF.Actor);
+HAF.Particle.SQUARE	= 0;
+HAF.Particle.CIRCLE	= 1;
+HAF.Particle.prototype.init = function(position, options) {
+	options = options || {};
+	this._particle = {
+		position: position,
+		pxPosition: [0, 0],
+		velocity: options.velocity || [0, 0], /* pixels per second */
+		opacity: options.opacity || 1,
+		size: options.size || 2,
+		color: options.color || [0, 0, 0],
+		type: options.type || HAF.Particle.SQUARE,
+		decay: options.decay || 0 /* opacity per second */
+	}
+
+}
+
+HAF.Particle.prototype.tick = function(dt) {
+	var changed = false;
+
+	/* adjust position */
+	for (var i=0;i<2;i++) {
+		var pos = this._particle.position[i] + this._particle.velocity[i] * dt / 1000;
+		this._particle.position[i] = pos;
+		var px = Math.round(pos);
+		if (px != this._particle.pxPosition[i]) {
+			this._particle.pxPosition[i] = px;
+			changed = true;
+		}
+	}
+	
+	/* adjust opacity */
+	if (this._particle.decay) {
+		this._particle.opacity = Math.max(0, this._particle.opacity - this._particle.decay * dt / 1000);
+		changed = true;
+	}
+	return changed;
+}
+
+HAF.Particle.prototype.draw = function(context) {
+	context.fillStyle = "rgba("+this._particle.color.join(",")+","+this._particle.opacity+")";
+	var half = this._particle.size/2;
+	switch (this._particle.type) {
+		case HAF.Particle.SQUARE:
+			context.fillRect(this._particle.pxPosition[0]-half, this._particle.pxPosition[1]-half, this._particle.size, this._particle.size);
+		break;
+
+		case HAF.Particle.CIRCLE:
+			context.beginPath();
+			context.arc(this._particle.pxPosition[0], this._particle.pxPosition[1], this._particle.size/2, 0, 2*Math.PI, false);
+			context.fill();
+		break;
+	}
 }

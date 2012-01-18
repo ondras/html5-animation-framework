@@ -13,7 +13,7 @@ HAF.MODE_DOUBLEBUFFER	= 2;
  */
 HAF.Engine = OZ.Class();
 HAF.Engine.prototype.init = function(size,  options) {
-	this._size = size;
+	this._size = null;
 	this._options = {
 		fps: 60,
 		id: "haf"
@@ -21,7 +21,7 @@ HAF.Engine.prototype.init = function(size,  options) {
 	for (var p in options) { this._options[p] = options[p]; }
 
 	this._running = false;
-	this._container = OZ.DOM.elm("div", {id:this._options.id, position:"relative", width:this._size[0]+"px", height:this._size[1]+"px"});
+	this._container = OZ.DOM.elm("div", {id:this._options.id, position:"relative"});
 	this._canvases = {};
 	this._draw = this._draw.bind(this);
 	this._tick = this._tick.bind(this);
@@ -38,11 +38,27 @@ HAF.Engine.prototype.init = function(size,  options) {
 			break;
 		}
 	}
+	
+	this.setSize(size || [0, 0]);
 
 	if (!ok) { 
 		this._schedule = function(cb) {
 			setTimeout(cb, 1000/60); /* 60 fps */
 		}
+	}
+}
+
+HAF.Engine.prototype.setSize = function(size) {
+	this._size = size;
+	
+	this._container.style.width = size[0]+"px";
+	this._container.style.height = size[1]+"px";
+	
+	for (var id in this._canvases) {
+		var canvas = this._canvases[id];
+		canvas.width = this._size[0];
+		canvas.height = this._size[1];
+		canvas.dirty = true;
 	}
 }
 
@@ -81,6 +97,7 @@ HAF.Engine.prototype.addActor = function(actor, canvasId) {
 	var obj = this._canvases[canvasId];
 	obj.actors.unshift(actor); 
 	obj.dirty = true;
+	actor.tick(0);
 }
 
 HAF.Engine.prototype.removeActor = function(actor, canvasId) {

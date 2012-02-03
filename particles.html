@@ -40,12 +40,11 @@
 		document.body.appendChild(engine.getContainer());
 		engine.addCanvas("main");
 
-		var fps = new HAF.FPS(engine);
-		document.body.appendChild(fps.getContainer());
-
-		var monitor = new HAF.Monitor(engine, [500, 100]);
+		var monitor = new HAF.Monitor.Sim(engine, [500, 100]);
 		document.body.appendChild(monitor.getContainer());
-		
+		var monitor = new HAF.Monitor.Draw(engine, [500, 100]);
+		document.body.appendChild(monitor.getContainer());
+
 		OZ.Event.add(engine, "tick", function() {
 			var type = parseInt(selectType.value);
 			var amount = Math.min(5, maxParticles - particles);

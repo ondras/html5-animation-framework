@@ -1,5 +1,6 @@
 .monitor {
 	background-color: #ffc;
+	display: block;
 }
 
 #engine {

@@ -24,11 +24,6 @@
 			<option value="0">Square</option>
 			<option value="1">Circle</option>
 		</select>
-		Drawing mode: <select id="mode" onchange="changeMode()">
-			<option value="0">Direct</option>
-			<option value="1">Offscreen</option>
-			<option value="2">Doublebuffer</option>
-		</select>
 		
 		<script>
 		var particles = 0;
@@ -38,7 +33,7 @@
 		var engine = new HAF.Engine([512, 512]);
 		engine.getContainer().id = "engine";
 		document.body.appendChild(engine.getContainer());
-		engine.addCanvas("main");
+		engine.addLayer("main");
 
 		var monitor = new HAF.Monitor.Sim(engine, [500, 100]);
 		document.body.appendChild(monitor.getContainer());
@@ -70,7 +65,6 @@
 		
 		var selectActors = OZ.$("actors");
 		var selectType = OZ.$("type");
-		var selectMode = OZ.$("mode");
 		var selectTransform = OZ.$("transform");
 		var actors = [];
 
@@ -80,16 +74,11 @@
 			maxParticles = parseInt(selectActors.value);
 		}
 		
-		var changeMode = function() {
-			engine.setMode(parseInt(selectMode.value));
-		}
-		
 		var changeType = function() {
 			changeActors();
 		}
 		
 		changeActors();
-		changeMode();
 		engine.start();
 		
 		</script>

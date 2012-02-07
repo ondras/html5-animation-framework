@@ -26,18 +26,13 @@
 			<option value="3">Sprite</option>
 			<option value="-1">(user)</option>
 		</select>
-		Drawing mode: <select id="mode" onchange="changeMode()">
-			<option value="0">Direct</option>
-			<option value="1">Offscreen</option>
-			<option value="2">Doublebuffer</option>
-		</select>
 		<label>Transform: <input type="checkbox" id="transform" onclick="changeTransform()" /></label>
 		
 		<script>
 		var engine = new HAF.Engine([512, 512]);
 		engine.getContainer().id = "engine";
 		document.body.appendChild(engine.getContainer());
-		engine.addCanvas("main");
+		engine.addLayer("main");
 
 		var monitor = new HAF.Monitor.Sim(engine, [500, 100]);
 		document.body.appendChild(monitor.getContainer());
@@ -47,7 +42,6 @@
 
 		var selectActors = OZ.$("actors");
 		var selectType = OZ.$("type");
-		var selectMode = OZ.$("mode");
 		var selectTransform = OZ.$("transform");
 		var actors = [];
 
@@ -68,10 +62,6 @@
 			}
 		}
 		
-		var changeMode = function() {
-			engine.setMode(parseInt(selectMode.value));
-		}
-		
 		var changeType = function() {
 			var type = parseInt(selectType.value);
 			for (var i=0;i<actors.length;i++) { actors[i].setType(type); }
@@ -83,7 +73,6 @@
 		}
 
 		changeActors();
-		changeMode();
 		changeTransform();
 		engine.start();
 		

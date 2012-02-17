@@ -1,6 +1,7 @@
 .monitor {
-	background-color: #ffc;
+	background-color: #eee;
 	display: block;
+	margin-bottom: 3px;
 }
 
 #engine {

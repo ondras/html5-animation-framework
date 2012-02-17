@@ -6,10 +6,18 @@
 		<script src="js/oz.js"></script>
 		<script src="js/haf.js"></script>
 		<script src="js/benchmark.js"></script>
-		<script src="js/test.js"></script>
 		<link rel="stylesheet" type="text/css" href="style.css" />
 	</head>
 	<body>
+		Size: <select id="size" onchange="changeSize()">
+			<option value="256x256">256&times;256</option>
+			<option value="512x512">512&times;512</option>
+			<option value="768x512">768&times;512</option>
+			<option value="1024x512">1024&times;512</option>
+			<option value="768x768">768&times;768</option>
+			<option value="1024x768">1024&times;768</option>
+			<option value="1024x1024">1024&times;1024</option>
+		</select>
 		Actors:	<select id="actors" onchange="changeActors()">
 			<option value="10">10</option>
 			<option value="50">50</option>
@@ -24,12 +32,16 @@
 			<option value="1">Square</option>
 			<option value="2">Square (aligned)</option>
 			<option value="3">Sprite</option>
-			<option value="-1">(user)</option>
 		</select>
-		<label>Transform: <input type="checkbox" id="transform" onclick="changeTransform()" /></label>
+		Clear: <select id="clear" onchange="changeClear()">
+			<option value="0">All (clear whole canvas)</option>
+			<option value="1">None (no clearing)</option>
+			<option value="2">All actors</option>
+			<option value="3">Changed actors</option>
+		</select>
 		
 		<script>
-		var engine = new HAF.Engine([512, 512]);
+		var engine = new HAF.Engine(null, {debug:true});
 		engine.getContainer().id = "engine";
 		document.body.appendChild(engine.getContainer());
 		engine.addLayer("main");
@@ -40,10 +52,17 @@
 		var monitor = new HAF.Monitor.Draw(engine, [500, 100]);
 		document.body.appendChild(monitor.getContainer());
 
+		var selectSize = OZ.$("size");
 		var selectActors = OZ.$("actors");
 		var selectType = OZ.$("type");
-		var selectTransform = OZ.$("transform");
+		var selectClear = OZ.$("clear");
 		var actors = [];
+		
+		var changeSize = function() {
+			var size = selectSize.value.split("x");
+			for (var i=0;i<2;i++) { size[i] = parseInt(size[i]); }
+			engine.setSize(size);
+		}
 
 		var changeActors = function() {
 			var count = parseInt(selectActors.value);
@@ -67,14 +86,31 @@
 			for (var i=0;i<actors.length;i++) { actors[i].setType(type); }
 		}
 		
-		var changeTransform = function() {
-			var enable = selectTransform.checked;
-			for (var i=0;i<actors.length;i++) { actors[i].setTransform(enable); }
+		var changeClear = function() {
+			var clear = parseInt(selectClear.value);
+			engine._layers["main"].clear = clear;
 		}
 
+		changeClear();
+		changeSize();
 		changeActors();
-		changeTransform();
+		/*
+		var a1 = new HAF.Sprite(Benchmark.image, [64, 64]);
+		a1._sprite.position = [100, 100];
+		engine.addActor(a1, "main");
+		a1.tick = function() { return true; }
+
+		var a2 = new HAF.Sprite(Benchmark.image, [64, 64]);
+		a2._sprite.position = [130, 100];
+		engine.addActor(a2, "main");
+
+		var a3 = new HAF.Sprite(Benchmark.image, [64, 64]);
+		a3._sprite.position = [170, 100];
+		engine.addActor(a3, "main");
+		*/
 		engine.start();
+		
+		setTimeout(function() { engine.removeActor(a2, "main"); }, 5000);
 		
 		</script>
 	</body>

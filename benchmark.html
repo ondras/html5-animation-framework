@@ -32,12 +32,15 @@
 			<option value="1">Square</option>
 			<option value="2">Square (aligned)</option>
 			<option value="3">Sprite</option>
-		</select>
+		</select><br/>
 		Clear: <select id="clear" onchange="changeClear()">
-			<option value="0">All (clear whole canvas)</option>
-			<option value="1">None (no clearing)</option>
-			<option value="2">All actors</option>
-			<option value="3">Changed actors</option>
+			<option value="0">Whole canvas</option>
+			<option value="1">Nothing</option>
+			<option value="2">Dirty actors</option>
+		</select>
+		Dirty actors: <select id="dirty" onchange="changeDirty()">
+			<option value="0">All</option>
+			<option value="1">Changed only</option>
 		</select>
 		
 		<script>
@@ -56,6 +59,7 @@
 		var selectActors = OZ.$("actors");
 		var selectType = OZ.$("type");
 		var selectClear = OZ.$("clear");
+		var selectDirty = OZ.$("dirty");
 		var actors = [];
 		
 		var changeSize = function() {
@@ -91,10 +95,16 @@
 			engine._layers["main"].clear = clear;
 		}
 
+		var changeDirty = function() {
+			var dirty = parseInt(selectDirty.value);
+			engine._layers["main"].dirty = dirty;
+		}
+
 		changeClear();
+		changeDirty();
 		changeSize();
 		changeActors();
-/*		
+		/*
 		var a1 = new HAF.Sprite(Benchmark.image, [64, 64]);
 		a1._sprite.position = [100, 100];
 		engine.addActor(a1, "main");
@@ -107,7 +117,11 @@
 		var a3 = new HAF.Sprite(Benchmark.image, [64, 64]);
 		a3._sprite.position = [130, 100];
 		engine.addActor(a3, "main");
-*/		
+		
+		var a4 = new HAF.Sprite(Benchmark.image, [64, 64]);
+		a4._sprite.position = [200, 100];
+		engine.addActor(a4, "main");
+*/
 		engine.start();
 		
 		</script>

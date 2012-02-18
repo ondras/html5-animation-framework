@@ -19,15 +19,18 @@
 			<option value="5000">5000</option>
 			<option value="10000">10000</option>
 		</select>
-		Clear: <select id="clear" onchange="changeClear()">
-			<option value="0">All (clear whole canvas)</option>
-			<option value="1">None (no clearing)</option>
-			<option value="2">All actors</option>
-			<option value="3">Changed actors</option>
-		</select>
 		Particle type: <select id="type" onchange="changeType()">
 			<option value="0">Square</option>
 			<option value="1">Circle</option>
+		</select>
+		Clear: <select id="clear" onchange="changeClear()">
+			<option value="0">Whole canvas</option>
+			<option value="1">Nothing</option>
+			<option value="2">Dirty actors</option>
+		</select>
+		Dirty actors: <select id="dirty" onchange="changeDirty()">
+			<option value="0">All</option>
+			<option value="1">Changed only</option>
 		</select>
 		
 		<script>
@@ -71,6 +74,7 @@
 		var selectActors = OZ.$("actors");
 		var selectType = OZ.$("type");
 		var selectClear = OZ.$("clear");
+		var selectDirty = OZ.$("dirty");
 		var actors = [];
 
 		var changeActors = function() {
@@ -88,7 +92,13 @@
 			engine._layers["main"].clear = clear;
 		}
 
+		var changeDirty = function() {
+			var dirty = parseInt(selectDirty.value);
+			engine._layers["main"].dirty = dirty;
+		}
+
 		changeClear();
+		changeDirty();
 		changeActors();
 		engine.start();
 		

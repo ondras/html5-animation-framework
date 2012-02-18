@@ -6,8 +6,10 @@ var HAF = {};
 
 HAF.CLEAR_ALL			= 0; /* clearRect on whole canvas */
 HAF.CLEAR_NONE			= 1; /* no clearing */
-HAF.CLEAR_ACTORS_ALL	= 2; /* clear all actors */
-HAF.CLEAR_ACTORS_DIRTY	= 3; /* clear only dirty actors (using their getBox()) */
+HAF.CLEAR_ACTORS		= 2; /* clear actors */
+
+HAF.DIRTY_ALL			= 0; /* (re-)draw all actors */
+HAF.DIRTY_CHANGED		= 1; /* (re-)draw only changed actors */
 
 /**
  * @class Base animation director
@@ -17,7 +19,8 @@ HAF.Engine.prototype.init = function(size,  options) {
 	this._size = null;
 	this._options = {
 		fps: 60,
-		id: "haf"
+		id: "haf",
+		debug: false
 	};
 	for (var p in options) { this._options[p] = options[p]; }
 	
@@ -32,7 +35,6 @@ HAF.Engine.prototype.init = function(size,  options) {
 	this._schedule = null;
 	this.draw = this.draw.bind(this);
 	this.tick = this.tick.bind(this);
-	
 	this.setSize(size || [0, 0]);
 
 	var prefixes = ["", "moz", "webkit", "ms"];
@@ -45,6 +47,15 @@ HAF.Engine.prototype.init = function(size,  options) {
 			setTimeout(cb, 1000/60); /* 60 fps */
 		}
 	}
+	
+	this._debugCanvas = OZ.DOM.elm("canvas", {width:"32", height:"32"});
+	var debugContext = this._debugCanvas.getContext("2d");
+	debugContext.fillStyle = "rgba(255, 255, 255, 0.2)";
+	debugContext.fillRect(0, 0, 16, 16);
+	debugContext.fillRect(16, 16, 16, 16);
+	debugContext.fillStyle = "rgba(150, 150, 150, 0.2)";
+	debugContext.fillRect(0, 16, 16, 16);
+	debugContext.fillRect(16, 0, 16, 16);
 }
 
 /**
@@ -56,7 +67,7 @@ HAF.Engine.prototype.setSize = function(size, layerId) {
 		var layer = this._layers[layerId];
 		layer.canvas.width = size[0];
 		layer.canvas.height = size[1];
-		layer.dirty = true;
+		this.setDirty(layerId);
 	} else {
 		this._size = size;
 		
@@ -68,7 +79,7 @@ HAF.Engine.prototype.setSize = function(size, layerId) {
 			if (!layer.sync) { continue; }
 			layer.canvas.width = this._size[0];
 			layer.canvas.height = this._size[1];
-			layer.dirty = true;
+			this.setDirty(id);
 		}
 	}
 }
@@ -86,7 +97,7 @@ HAF.Engine.prototype.getContainer = function() {
  * @param {object} [options]
  * @param {bool} [options.sync] sync Size with the main container?
  * @param {bool} [options.clear] clear Clearing algorithm - HAF.CLEAR_ constatnt
- * @param {bool} [options.clear] dirty Dirty algorithm - HAF.DIRTY_ constatnt (only needed when clear=HAF.CLEAR_DIRTY)
+ * @param {bool} [options.dirty] dirty Which actors are dirty? - HAF.DIRTY_ constant
  */
 HAF.Engine.prototype.addLayer = function(id, options) {
 	if (id in this._layers) { return; }
@@ -97,6 +108,7 @@ HAF.Engine.prototype.addLayer = function(id, options) {
 
 	var o = {
 		clear: HAF.CLEAR_ALL,
+		dirty: HAF.DIRTY_ALL,
 		sync: true
 	};
 	for (var p in options) { o[p] = options[p]; }
@@ -105,9 +117,12 @@ HAF.Engine.prototype.addLayer = function(id, options) {
 		canvas: canvas,
 		ctx: canvas.getContext("2d"),
 		clear: o.clear,
+		dirty: o.dirty,
 		sync: o.sync,
+		debugPattern: null,
 		actors: []
 	}
+	layer.debugPattern = layer.ctx.createPattern(this._debugCanvas, "repeat");
 	this._layers[id] = layer;
 	this._container.appendChild(canvas);
 
@@ -119,8 +134,9 @@ HAF.Engine.prototype.addActor = function(actor, layerId) {
 	
 	var a = {
 		box: null, /* latest drawn bbox; is used to clear the actor */
-		dirty: true,
-		actor: actor
+		changed: true, /* was changed in one of the last ticks? */
+		actor: actor, /* user-supplied instance */
+		dead: false /* is this one dead, waiting to be collected? */
 	};
 	layer.actors.push(a); 
 
@@ -132,36 +148,23 @@ HAF.Engine.prototype.removeActor = function(actor, layerId) {
 	var layer = this._layers[layerId];
 	for (var i=0;i<layer.actors.length;i++) {
 		var a = layer.actors[i];
-		if (a.actor != actor) { continue; }
-
-		if (a.box) { /* we have a bounding box => this one needs clearing */
-			a.actor = null; /* will be spliced after clearing */
-		} else { /* no box => not drawn */
-			layer.actors.splice(i, 1);
-		}		
-
-		break;
+		if (a.actor == actor) { 
+			a.dead = true; 
+			break;
+		}
 	}
 	return this;
 }
 
 HAF.Engine.prototype.removeActors = function(layerId) {
 	var actors = this._layers[layerId].actors;
-	for (var i=0;i<actors.length;i++) {
-		var actor = actors[i];
-		if (actor.box) {
-			actor.actor = null;
-		} else {
-			actors.splice(i, 1);
-			i--;
-		}
-	}
+	for (var i=0;i<actors.length;i++) { actors[i].dead = true;  }
 	return this;
 }
 
 HAF.Engine.prototype.setDirty = function(layerId) {
 	var actors = this._layers[layerId].actors;
-	for (var i=0;i<actors.length;i++) { actors[i].dirty = true; }
+	for (var i=0;i<actors.length;i++) { actors[i].changed = true; }
 	return this;
 }
 
@@ -204,9 +207,9 @@ HAF.Engine.prototype.tick = function() {
 		
 		for (var i=0;i<len;i++) { /* tick all actors, remember if any actor changed */
 			var actor = actors[i];
-			if (!actor.actor) { continue; } /* empty record: was recently removed, will be purged on redraw */
+			if (actor.dead) { continue; } /* empty record: was recently removed, will be purged on redraw */
 			var changed = actor.actor.tick(dt);
-			actor.dirty = changed || actor.dirty;
+			actor.changed = changed || actor.changed;
 			if (changed) { changedActors++; }
 		}
 
@@ -232,11 +235,12 @@ HAF.Engine.prototype.draw = function() {
 	/* clear & draw phase */
 	for (var id in this._layers) {
 		var layer = this._layers[id];
-		allActors += layer.actors.length;
+		var actors = layer.actors;
+		var allCount = actors.length;
+		allActors += allCount;
 
-		var dirtyActors = this._getDirtyActors(layer); /* what actors need to be redrawn */
-		var len = dirtyActors.length;
-		if (!len) { continue; } /* nothing changed, cool */
+		var dirtyCount = this._updateDirtyActors(layer); /* adjust number of actors waiting to be redrawn */
+		if (!dirtyCount) { continue; } /* nothing changed, cool */
 
 		/* clear */
 		switch (layer.clear) {
@@ -245,33 +249,32 @@ HAF.Engine.prototype.draw = function() {
 			break;
 			
 			/* clear actors */
-			case HAF.CLEAR_ACTORS_ALL: 
-			case HAF.CLEAR_ACTORS_DIRTY:
-				for (var i=0;i<len;i++) {
-					var actor = dirtyActors[i];
-					var box = actor.box;
+			case HAF.CLEAR_ACTORS: 
+				for (var i=0;i<allCount;i++) {
+					if (!actors[i].changed) { continue; }
+					var box = actors[i].box;
 					if (box) { layer.ctx.clearRect(box[0][0], box[0][1], box[1][0], box[1][1]); }
 				}
 			break;
 		}
 		
 		/* draw */
-		for (var i=0;i<len;i++) {
-			var actor = dirtyActors[i];
-			if (!actor.actor) { /* empty record: was recently deleted and cleared */
-				if (dirtyActors == layer.actors) {
-					dirtyActors.splice(i, 1);
-					i--;
-					len--;
-				} else {
-					var index = layer.actors.indexOf(actor);
-					layer.actors.splice(index, 1);
-				}
+		for (var i=0;i<allCount;i++) {
+			var actor = actors[i];
+			if (!actor.changed) { continue; }
+			if (actor.dead) { /* empty record: was recently deleted and cleared */
+				actors.splice(i, 1);
+				i--;
+				allCount--;
 				continue;
 			}
-			actor.dirty = false;
+			actor.changed = false;
 			actor.actor.draw(layer.ctx);
 			actor.box = actor.actor.getBox();
+			if (this._options.debug && actor.box) { 
+				layer.ctx.fillStyle = layer.debugPattern;
+				layer.ctx.fillRect(actor.box[0][0], actor.box[0][1], actor.box[1][0], actor.box[1][1]); 
+			}
 			drawnActors++;
 		}
 		
@@ -280,56 +283,71 @@ HAF.Engine.prototype.draw = function() {
 	this.dispatch("draw", {delay:dt, time:Date.now()-ts1, all:allActors, drawn:drawnActors});
 }
 
-HAF.Engine.prototype._getDirtyActors = function(layer) {
-	var dirty = [];
-	var clean = [];
+HAF.Engine.prototype._updateDirtyActors = function(layer) {
 	var actors = layer.actors;
 	var len = actors.length;
 
-	for (var i=0;i<len;i++) {
-		var actor = actors[i];
-		if (!actor.dirty) { 
-			clean.push(actor);
-			continue; 
-		}
-		
-		switch (layer.clear) {
-			/* remember dirty actors */
-			case HAF.CLEAR_NONE:
-			case HAF.CLEAR_ACTORS_DIRTY:
-				dirty.push(actor);
-			break;
-			
-			/* need to redraw all of them */
-			case HAF.CLEAR_ALL: 
-			case HAF.CLEAR_ACTORS_ALL:
-				return actors;
-			break;
-		}
-	}
-	
-	if (layer.clear != HAF.CLEAR_ACTORS_DIRTY) { return dirty; }
-
-	/* adjust clean actors based on dirty boxes */
-	var dirtyLength = dirty.length;
-	for (var i=0;i<dirtyLength;i++) {
-		var dirtyActor = dirty[i]; 
-		if (!dirtyActor.box) { continue; } /* not drawn yet; will not be cleared */
-		var cleanLength = clean.length;
-		for (var j=0;j<cleanLength;j++) {
-			var cleanActor = clean[j]; /* clean actor MUST have a box (was already drawn) */
-			if (this._intersects(cleanActor.box, dirtyActor.box)) { /* they intersect; mark clean actor dirty */
-				cleanActor.dirty = true;
-				clean.splice(j, 1);
-				cleanLength--;
-				j--;
-				dirty.push(cleanActor);
-				dirtyLength++;
+	switch (layer.dirty) {
+		case HAF.DIRTY_ALL: /* once one was changed, mark all as changed */
+			var oneChanged = false;
+			for (var i=0;i<len;i++) {
+				if (actors[i].changed) {
+					oneChanged = true;
+					break;
+				}
 			}
-		}
+			if (oneChanged) {
+				for (var i=0;i<len;i++) { actors[i].changed = true; }
+				return len;
+			} else {
+				return 0;
+			}
+		break;
+		
+		case HAF.DIRTY_CHANGED:
+			if (layer.clear != HAF.CLEAR_ACTORS) {  /* just count how many changed */	
+				var count = 0;
+				for (var i=0;i<len;i++) {
+					if (actors[i].changed) { count++; }
+				}
+				return count;
+			}
+			
+			/* adjust number of changed in order to prevent overlapping box clear */
+			var clean = [];
+			var dirty = [];
+			for (var i=0;i<len;i++) { /* compute clean actors first */
+				if (actors[i].changed) { 
+					dirty.push(actors[i]); 
+				} else {
+					clean.push(actors[i]); 
+				}
+			}
+
+			var dirtyLength = dirty.length;
+			for (var i=0;i<dirtyLength;i++) {
+				var dirtyActor = dirty[i];
+				if (!dirtyActor.box) { continue; } /* not changed/drawn yet; will not be cleared */
+				var cleanLength = clean.length;
+				for (var j=0;j<cleanLength;j++) { /* clean actor MUST have a box (was already drawn) */
+					var cleanActor = clean[j];
+					if (this._intersects(cleanActor.box, dirtyActor.box)) { /* they intersect; mark clean actor dirty */
+						cleanActor.changed = true;
+						clean.splice(j, 1);
+						cleanLength--;
+						j--;
+						
+						dirty.push(cleanActor);
+						dirtyLength++;
+					}
+					
+				}
+			}
+
+			return dirtyLength;
+		break;
 	}
-	
-	return dirty;	
+
 }
 
 /**
@@ -663,7 +681,6 @@ HAF.Particle.prototype.draw = function(context) {
 }
 
 HAF.Particle.prototype.getBox = function() {
-	/* FIXME otestovat, optimalizovat */
 	var half = this._particle.size/2;
 	return [
 		[this._particle.pxPosition[0]-half, this._particle.pxPosition[1]-half],

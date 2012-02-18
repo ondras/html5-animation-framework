@@ -7,7 +7,6 @@
 		<script src="js/haf.js"></script>
 		<script src="js/particle.js"></script>
 		<script src="js/benchmark.js"></script>
-		<script src="js/test.js"></script>
 		<link rel="stylesheet" type="text/css" href="style.css" />
 	</head>
 	<body>
@@ -19,6 +18,12 @@
 			<option value="1000">1000</option>
 			<option value="5000">5000</option>
 			<option value="10000">10000</option>
+		</select>
+		Clear: <select id="clear" onchange="changeClear()">
+			<option value="0">All (clear whole canvas)</option>
+			<option value="1">None (no clearing)</option>
+			<option value="2">All actors</option>
+			<option value="3">Changed actors</option>
 		</select>
 		Particle type: <select id="type" onchange="changeType()">
 			<option value="0">Square</option>
@@ -32,7 +37,7 @@
 			
 		var engine = new HAF.Engine([512, 512]);
 		engine.getContainer().id = "engine";
-		document.body.appendChild(engine.getContainer());
+		document.body.insertBefore(engine.getContainer(), document.body.firstChild);
 		engine.addLayer("main");
 
 		var monitor = new HAF.Monitor.Sim(engine, [500, 100]);
@@ -65,12 +70,12 @@
 		
 		var selectActors = OZ.$("actors");
 		var selectType = OZ.$("type");
-		var selectTransform = OZ.$("transform");
+		var selectClear = OZ.$("clear");
 		var actors = [];
 
 		var changeActors = function() {
-			engine.removeActors("main");
-			particles = 0;
+//			engine.removeActors("main");
+//			particles = 0;
 			maxParticles = parseInt(selectActors.value);
 		}
 		
@@ -78,6 +83,12 @@
 			changeActors();
 		}
 		
+		var changeClear = function() {
+			var clear = parseInt(selectClear.value);
+			engine._layers["main"].clear = clear;
+		}
+
+		changeClear();
 		changeActors();
 		engine.start();
 		

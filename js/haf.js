@@ -134,7 +134,6 @@ HAF.Engine.prototype.removeActor = function(actor, layerId) {
 		var a = layer.actors[i];
 		if (a.actor != actor) { continue; }
 
-		
 		if (a.box) { /* we have a bounding box => this one needs clearing */
 			a.actor = null; /* will be spliced after clearing */
 		} else { /* no box => not drawn */
@@ -224,7 +223,8 @@ HAF.Engine.prototype.draw = function() {
 
 	this._schedule.call(window, this.draw); /* schedule next tick */
 
-	var dirtyTime = 0;
+	var drawnActors = 0;
+	var allActors = 0;
 	var ts1 = Date.now();
 	var dt = ts1 - this._ts.draw;
 	this._ts.draw = ts1;
@@ -232,13 +232,11 @@ HAF.Engine.prototype.draw = function() {
 	/* clear & draw phase */
 	for (var id in this._layers) {
 		var layer = this._layers[id];
+		allActors += layer.actors.length;
 
-		var tmp = Date.now();
 		var dirtyActors = this._getDirtyActors(layer); /* what actors need to be redrawn */
-		dirtyTime += (Date.now() - tmp);
-		
-		if (!dirtyActors.length) { continue; } /* nothing changed, cool */
 		var len = dirtyActors.length;
+		if (!len) { continue; } /* nothing changed, cool */
 
 		/* clear */
 		switch (layer.clear) {
@@ -261,18 +259,25 @@ HAF.Engine.prototype.draw = function() {
 		for (var i=0;i<len;i++) {
 			var actor = dirtyActors[i];
 			if (!actor.actor) { /* empty record: was recently deleted and cleared */
-				var index = layer.actors.indexOf(actor);
-				layer.actors.splice(index, 1);
+				if (dirtyActors == layer.actors) {
+					dirtyActors.splice(i, 1);
+					i--;
+					len--;
+				} else {
+					var index = layer.actors.indexOf(actor);
+					layer.actors.splice(index, 1);
+				}
 				continue;
 			}
 			actor.dirty = false;
 			actor.actor.draw(layer.ctx);
 			actor.box = actor.actor.getBox();
+			drawnActors++;
 		}
 		
 	}
 	
-	this.dispatch("draw", {delay:dt, time:Date.now()-ts1, dirty:dirtyTime});
+	this.dispatch("draw", {delay:dt, time:Date.now()-ts1, all:allActors, drawn:drawnActors});
 }
 
 HAF.Engine.prototype._getDirtyActors = function(layer) {
@@ -306,23 +311,25 @@ HAF.Engine.prototype._getDirtyActors = function(layer) {
 	if (layer.clear != HAF.CLEAR_ACTORS_DIRTY) { return dirty; }
 
 	/* adjust clean actors based on dirty boxes */
-	var cleanLength = clean.length;
-	for (var i=0;i<cleanLength;i++) {
-		var cleanActor = clean[i]; /* clean actor MUST have a box (was already drawn) */
-		var dirtyLength = dirty.length;
-		for (var j=0;j<dirtyLength;j++) {
-			var dirtyActor = dirty[j];
-			if (!dirtyActor.box) { continue; } /* not drawn yet; will not be cleared */
+	var dirtyLength = dirty.length;
+	for (var i=0;i<dirtyLength;i++) {
+		var dirtyActor = dirty[i]; 
+		if (!dirtyActor.box) { continue; } /* not drawn yet; will not be cleared */
+		var cleanLength = clean.length;
+		for (var j=0;j<cleanLength;j++) {
+			var cleanActor = clean[j]; /* clean actor MUST have a box (was already drawn) */
 			if (this._intersects(cleanActor.box, dirtyActor.box)) { /* they intersect; mark clean actor dirty */
 				cleanActor.dirty = true;
+				clean.splice(j, 1);
+				cleanLength--;
+				j--;
 				dirty.push(cleanActor);
-				break;
+				dirtyLength++;
 			}
 		}
 	}
 	
-	return dirty;
-	
+	return dirty;	
 }
 
 /**
@@ -354,13 +361,19 @@ HAF.Monitor.prototype.init = function(engine, size, event, options) {
 	
 	this._data = [];
 	this._avg = [];
+	this._paused = false;
 	
+	OZ.Event.add(this._canvas, "click", this._click.bind(this));
 	OZ.Event.add(engine, "start", this._start.bind(this));
 	OZ.Event.add(engine, event, this._event.bind(this));
 }
 
 HAF.Monitor.prototype.getContainer = function() {
 	return this._canvas;
+}
+
+HAF.Monitor.prototype._click = function(e) {
+	this._paused = !this._paused;
 }
 
 HAF.Monitor.prototype._start = function(e) {
@@ -371,7 +384,7 @@ HAF.Monitor.prototype._event = function(e) {
 	if (this._data.length > this._size[0]) { this._data.shift(); }
 	this._avg.push(this._data[this._data.length-1]);
 	if (this._avg.length > 30) { this._avg.shift(); }
-	this._draw();	
+	if (!this._paused) { this._draw(); }
 }
 
 HAF.Monitor.prototype._draw = function() {
@@ -400,7 +413,9 @@ HAF.Monitor.Draw.prototype.init = function(engine, size, options) {
 }
 
 HAF.Monitor.Draw.prototype._event = function(e) {
-	this._data.push([e.data.delay, e.data.time, e.data.dirty]);
+	var frac = e.data.drawn/e.data.all;
+	frac *= (this._size[1]-1);
+	this._data.push([e.data.delay, e.data.time, Math.round(frac), e.data.drawn, e.data.all]);
 	HAF.Monitor.prototype._event.call(this, e);
 }
 
@@ -419,7 +434,10 @@ HAF.Monitor.Draw.prototype._draw = function() {
 	var fps1 = (1000 * this._avg.length / avg[0]).toFixed(1);
 	var fps2 = (1000 * this._avg.length / avg[1]).toFixed(1);
 	
-	var text = "Draw: " + fps1 + "/" + fps2 + " FPS";
+	var drawn = this._data[this._data.length-1][3];
+	var all = this._data[this._data.length-1][4];
+
+	var text = "Draw: " + fps1 + "/" + fps2 + " FPS, " + drawn + "/" + all + " drawn";
 	this._ctx.fillStyle = this._options.textColor;
 	this._ctx.fillText(text, 5, 5);
 }
@@ -620,9 +638,11 @@ HAF.Particle.prototype.tick = function(dt) {
 	
 	/* adjust opacity */
 	if (this._particle.decay) {
-		this._particle.opacity = Math.max(0, this._particle.opacity - this._particle.decay * dt / 1000);
+		var diff = this._particle.decay * dt / 1000;
+		this._particle.opacity = Math.max(0, this._particle.opacity - diff);
 		changed = true;
 	}
+	
 	return changed;
 }
 

@@ -32,6 +32,7 @@
 			<option value="1">Square</option>
 			<option value="2">Square (aligned)</option>
 			<option value="3">Sprite</option>
+			<option value="4">Canvas</option>
 		</select><br/>
 		Clear: <select id="clear" onchange="changeClear()">
 			<option value="0">Whole canvas</option>
@@ -44,7 +45,7 @@
 		</select>
 		
 		<script>
-		var engine = new HAF.Engine(null, {debug:true});
+		var engine = new HAF.Engine(null, {debug:false});
 		engine.getContainer().id = "engine";
 		document.body.insertBefore(engine.getContainer(), document.body.firstChild);
 		engine.addLayer("main");

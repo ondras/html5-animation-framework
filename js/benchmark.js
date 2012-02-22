@@ -4,8 +4,18 @@ Benchmark.CIRCLE			= 0;
 Benchmark.SQUARE			= 1;
 Benchmark.SQUARE_ALIGNED	= 2;
 Benchmark.SPRITE			= 3;
+Benchmark.CANVAS			= 4;
 
 Benchmark.image = OZ.DOM.elm("img", {src:"zombie.png"});
+Benchmark.canvas = OZ.DOM.elm("canvas", {width:64, height:64});
+OZ.Event.add(Benchmark.image, "load", function(e) {
+	var context = Benchmark.canvas.getContext("2d");
+	context.drawImage(
+		Benchmark.image,
+		64*4, 0, 64, 64,
+		0, 0, 64, 64
+	);
+});
 
 Benchmark.prototype.init = function(type) {
 	this._type = null;
@@ -72,5 +82,11 @@ Benchmark.prototype.draw = function(context) {
 			);
 		break;
 		
+		case Benchmark.CANVAS:
+			context.drawImage(
+				this.constructor.canvas, 
+				this._position[0], this._position[1]
+			);
+		break;
 	}
 }

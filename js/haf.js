@@ -133,14 +133,14 @@ HAF.Engine.prototype.addActor = function(actor, layerId) {
 	var layer = this._layers[layerId];
 	
 	var a = {
-		box: null, /* latest drawn bbox; is used to clear the actor */
-		changed: true, /* was changed in one of the last ticks? */
-		actor: actor, /* user-supplied instance */
-		dead: false /* is this one dead, waiting to be collected? */
+		box: null,		/* latest drawn bbox; is used to clear the actor */
+		changed: true,	/* was changed in one of the last ticks? */
+		actor: actor,	/* user-supplied instance */
+		dead: false		/* is this one dead, waiting to be collected? */
 	};
 	layer.actors.push(a); 
 
-	actor.tick(0); /* potential initialization */
+	actor.tick(0);		/* potential initialization */
 	return this;
 }
 
@@ -251,8 +251,9 @@ HAF.Engine.prototype.draw = function() {
 			/* clear actors */
 			case HAF.CLEAR_ACTORS: 
 				for (var i=0;i<allCount;i++) {
-					if (!actors[i].changed) { continue; }
-					var box = actors[i].box;
+					var actor = actors[i];
+					if (!actor.changed && !actor.dead) { continue; }
+					var box = actor.box;
 					if (box) { layer.ctx.clearRect(box[0][0], box[0][1], box[1][0], box[1][1]); }
 				}
 			break;
@@ -261,13 +262,13 @@ HAF.Engine.prototype.draw = function() {
 		/* draw */
 		for (var i=0;i<allCount;i++) {
 			var actor = actors[i];
-			if (!actor.changed) { continue; }
 			if (actor.dead) { /* empty record: was recently deleted and cleared */
 				actors.splice(i, 1);
 				i--;
 				allCount--;
 				continue;
 			}
+			if (!actor.changed) { continue; }
 			actor.changed = false;
 			actor.actor.draw(layer.ctx);
 			actor.box = actor.actor.getBox();

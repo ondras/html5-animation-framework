@@ -92,6 +92,10 @@ HAF.Engine.prototype.getContainer = function() {
 	return this._container;
 }
 
+HAF.Engine.prototype.getLayer = function(id) {
+	return this._layers[id].canvas;
+}
+
 /**
  * @param {id} id Layer ID
  * @param {object} [options]
@@ -129,7 +133,7 @@ HAF.Engine.prototype.addLayer = function(id, options) {
 	return canvas;
 }
 
-HAF.Engine.prototype.addActor = function(actor, layerId) {
+HAF.Engine.prototype.addActor = function(actor, layerId, insert) {
 	var layer = this._layers[layerId];
 	
 	var a = {
@@ -138,7 +142,12 @@ HAF.Engine.prototype.addActor = function(actor, layerId) {
 		actor: actor,	/* user-supplied instance */
 		dead: false		/* is this one dead, waiting to be collected? */
 	};
-	layer.actors.push(a); 
+	
+	if (insert) {
+		layer.actors.unshift(a);
+	} else {
+		layer.actors.push(a); 
+	}
 
 	actor.tick(0);		/* potential initialization */
 	return this;
@@ -150,6 +159,7 @@ HAF.Engine.prototype.removeActor = function(actor, layerId) {
 		var a = layer.actors[i];
 		if (a.actor == actor) { 
 			a.dead = true; 
+			a.changed = true; 
 			break;
 		}
 	}
@@ -158,7 +168,10 @@ HAF.Engine.prototype.removeActor = function(actor, layerId) {
 
 HAF.Engine.prototype.removeActors = function(layerId) {
 	var actors = this._layers[layerId].actors;
-	for (var i=0;i<actors.length;i++) { actors[i].dead = true;  }
+	for (var i=0;i<actors.length;i++) { 
+		actors[i].dead = true;  
+		actors[i].changed = true;  
+	}
 	return this;
 }
 
@@ -252,9 +265,10 @@ HAF.Engine.prototype.draw = function() {
 			case HAF.CLEAR_ACTORS: 
 				for (var i=0;i<allCount;i++) {
 					var actor = actors[i];
-					if (!actor.changed && !actor.dead) { continue; }
-					var box = actor.box;
-					if (box) { layer.ctx.clearRect(box[0][0], box[0][1], box[1][0], box[1][1]); }
+					if (actor.changed && actor.box) { 
+						var box = actor.box;
+						layer.ctx.clearRect(box[0][0], box[0][1], box[1][0], box[1][1]);
+					}
 				}
 			break;
 		}
@@ -262,13 +276,15 @@ HAF.Engine.prototype.draw = function() {
 		/* draw */
 		for (var i=0;i<allCount;i++) {
 			var actor = actors[i];
+			if (!actor.changed) { continue; }
+
 			if (actor.dead) { /* empty record: was recently deleted and cleared */
 				actors.splice(i, 1);
 				i--;
 				allCount--;
 				continue;
 			}
-			if (!actor.changed) { continue; }
+
 			actor.changed = false;
 			actor.actor.draw(layer.ctx);
 			actor.box = actor.actor.getBox();
@@ -535,6 +551,10 @@ HAF.Sprite.prototype.getBox = function() {
 		this._sprite.size
 	];
 }
+HAF.Sprite.prototype.setPosition = function(position) {
+	this._sprite.position = position;
+	return this;
+}
 HAF.Sprite.prototype._getSourceImagePosition = function() {
 	return [0, 0];
 }
@@ -603,21 +623,32 @@ HAF.Sprite._render = function(url, key) {
  * Animated image sprite, consists of several frames
  */
 HAF.AnimatedSprite = OZ.Class().extend(HAF.Sprite);
-HAF.AnimatedSprite.prototype.init = function(image, size, frames) {
+HAF.AnimatedSprite.prototype.init = function(image, size, animationOptions) {
 	HAF.Sprite.prototype.init.call(this, image, size);
 	this._animation = {
 		fps: 10,
 		time: 0,
 		frame: 0,
-		frames: frames
+		frames: 10,
+		loop: true
 	}
+	for (var p in animationOptions) { this._animation[p] = animationOptions[p]; }
 	
 }
 HAF.AnimatedSprite.prototype.tick = function(dt) {
 	this._animation.time += dt;
 	var oldFrame = this._animation.frame;
-	this._animation.frame = Math.floor(this._animation.time * this._animation.fps / 1000) % this._animation.frames;
+	var frame = Math.floor(this._animation.time * this._animation.fps / 1000);
+	if (frame >= this._animation.frames && !this._animation.loop) {
+		this._stop();
+	} else {
+		this._animation.frame = frame % this._animation.frames;
+	}
 	return (oldFrame != this._animation.frame);
+}
+HAF.AnimatedSprite.prototype._stop = function() {
+	this._animation.frame = this._animation.frames - 1;
+	this.dispatch("stop");
 }
 
 /**

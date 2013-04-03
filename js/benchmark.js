@@ -25,12 +25,21 @@ Benchmark.prototype.init = function(type) {
 
 	var colors = ["red", "green", "blue", "black", "yellow", "cyan", "magenta", "orange"];
 	this._color = colors[Math.floor(Math.random()*colors.length)];
-	this._frame = 0;
+	this._frame = Math.floor(100*Math.random());
+	this._spriteFrame = 0;
 	this.setType(type);
 }
 
 Benchmark.prototype.tick = function() {
 	this._frame++;
+	if (this._type == Benchmark.SPRITE) { 
+		var sf = Math.floor(this._frame / 5) % 8; 
+		if (sf != this._spriteFrame) {
+			this._spriteFrame = sf;
+		} else {
+			return false; /* not changed */
+		}
+	}
 	return true;
 }
 
@@ -50,8 +59,8 @@ Benchmark.prototype.setType = function(type) {
 Benchmark.prototype.draw = function(context) {
 	if (!this._position || this._type != Benchmark.SPRITE) {
 		this._position = [
-			~~(Math.random()*context.canvas.width),
-			~~(Math.random()*context.canvas.height)
+			~~(Math.random()*context.canvas.width) - 32,
+			~~(Math.random()*context.canvas.height) - 32
 		];
 	}
 
@@ -74,10 +83,9 @@ Benchmark.prototype.draw = function(context) {
 		break;
 
 		case Benchmark.SPRITE:
-			var frame = Math.floor(this._frame / 5) % 8;
 			context.drawImage(
 				this.constructor.image, 
-				(4 + frame)*this._size[0], 0, this._size[0], this._size[1], 
+				(4 + this._spriteFrame)*this._size[0], 0, this._size[0], this._size[1], 
 				this._position[0], this._position[1], this._size[0], this._size[1]
 			);
 		break;

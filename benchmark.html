@@ -70,19 +70,16 @@
 		}
 
 		var changeActors = function() {
+			while (actors.length) {
+				var actor = actors.pop();
+				engine.removeActor(actor, "main");
+			}
 			var count = parseInt(selectActors.value);
-			if (count < actors.length) { /* remove */
-				while (count < actors.length) {
-					var actor = actors.pop();
-					engine.removeActor(actor, "main");
-				}
-			} else if (count > actors.length) { /* add */			
-				var type = parseInt(selectType.value);
-				for (var i=actors.length;i<count;i++) {
-					var actor = new Benchmark(type);
-					actors.push(actor);
-					engine.addActor(actor, "main");
-				}
+			var type = parseInt(selectType.value);
+			for (var i=actors.length;i<count;i++) {
+				var actor = new Benchmark(type);
+				actors.push(actor);
+				engine.addActor(actor, "main");
 			}
 		}
 		
